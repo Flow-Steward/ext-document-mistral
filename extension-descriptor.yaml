@@ -1,0 +1,27 @@
+schema_version: extension_descriptor_v1
+lifecycle: {data_schema_version: 1, data_migrations: []}
+extension_id: flowsteward.mistral-document
+release_version: 0.1.1
+extension_type: service_extension
+identity:
+  display_name: Mistral Document AI
+  description: Extract document text and structured data using Mistral Document AI.
+  tags: [mistral, ocr, document-extraction]
+vendor: {vendor_name: Flow Steward, support_url: 'https://github.com/Flow-Steward/ext-document-mistral/issues'}
+listing: {visibility: public_reference, category: data}
+distribution: {channel: private_byo, execution_modes: [local], allows_self_hosted: true, requires_connected_control_plane: false, import_sources: [file]}
+runtime:
+  contract_version: extension_host_v2
+  compatibility: {platform_min: 1.4.0}
+  extension_contract_v2:
+    connection_types: contracts/connection_types.yaml
+    operation_manifest: contracts/operation_manifest.yaml
+    artifact_policies: contracts/artifact_policies.yaml
+    step_ui_manifest: contracts/step_ui_manifest.yaml
+artifacts:
+  extensions:
+  - extension_id: flowsteward.mistral-document
+    ref: extension.yaml
+    publish: true
+provenance: {origin: imported, notes: Bundle-local contracts.}
+commerce: {billing_mode: free}
