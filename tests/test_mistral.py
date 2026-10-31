@@ -228,3 +228,33 @@ def test_pdf_fixtures_are_transmitted_as_document_data(filename):
     data = (Path(__file__).parent / "fixtures" / filename).read_bytes()
     request = build_request(data, "application/pdf", {})
     assert base64.b64decode(request["document"]["document_url"].split(",", 1)[1]) == data
+
+
+def test_schema_property_names_may_match_reference_keywords():
+    schema = {
+        "type": "object",
+        "properties": {"$ref": {"type": "string"}, "$dynamicRef": {"type": "number"}},
+    }
+    request = build_request(b"%PDF-1.4", "application/pdf", {"schema": schema})
+    assert request["document_annotation_format"]["json_schema"]["schema"] == schema
+    text, structured = parse_response(
+        {"pages": [{"markdown": "ok"}], "document_annotation": '{"$ref":"hello", "$dynamicRef":2}'},
+        schema,
+    )
+    assert structured["$ref"] == "hello"
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "object", "properties": {"name": {"$ref": "#/$defs/name"}}},
+        {"type": "object", "allOf": [{"$dynamicRef": "https://example.invalid/schema"}]},
+        {
+            "type": "object",
+            "$defs": {"nested": {"anyOf": [{"$ref": "https://example.invalid/schema"}]}},
+        },
+    ],
+)
+def test_actual_nested_references_are_rejected(schema):
+    with pytest.raises(MistralError, match="references"):
+        build_request(b"%PDF-1.4", "application/pdf", {"schema": schema})

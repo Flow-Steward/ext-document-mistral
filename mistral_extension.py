@@ -15,6 +15,7 @@ from flowsteward_extension_sdk.artifacts import (
 from flowsteward_extension_sdk.http import Request, open_pinned_url, resolve_pinned_ips
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
+from referencing import Registry
 
 INPUT_LIMIT = 20 * 1024 * 1024
 OUTPUT_LIMIT = 50 * 1024 * 1024
@@ -63,12 +64,35 @@ def build_request(data: bytes, mime: str, options: dict[str, Any]) -> dict[str, 
             )
 
         def has_references(value: Any) -> bool:
-            if isinstance(value, dict):
-                return any(
-                    k in {"$ref", "$dynamicRef"} or has_references(v) for k, v in value.items()
-                )
-            if isinstance(value, list):
-                return any(has_references(v) for v in value)
+            if not isinstance(value, dict):
+                return False
+            if "$ref" in value or "$dynamicRef" in value:
+                return True
+            maps = ("properties", "patternProperties", "$defs", "dependentSchemas")
+            singles = (
+                "additionalProperties",
+                "unevaluatedProperties",
+                "propertyNames",
+                "items",
+                "contains",
+                "not",
+                "if",
+                "then",
+                "else",
+                "unevaluatedItems",
+                "contentSchema",
+            )
+            arrays = ("allOf", "anyOf", "oneOf", "prefixItems")
+            for keyword in maps:
+                children = value.get(keyword)
+                if isinstance(children, dict) and any(has_references(v) for v in children.values()):
+                    return True
+            if any(has_references(value.get(keyword)) for keyword in singles):
+                return True
+            for keyword in arrays:
+                children = value.get(keyword)
+                if isinstance(children, list) and any(has_references(v) for v in children):
+                    return True
             return False
 
         if (
@@ -114,7 +138,9 @@ def parse_response(
             raise MistralError(
                 "invalid_provider_response", "Mistral did not return a valid structured object."
             ) from exc
-        error = next(Draft202012Validator(schema).iter_errors(structured), None)
+        error = next(
+            Draft202012Validator(schema, registry=Registry()).iter_errors(structured), None
+        )
         if error is not None:
             path = ".".join(str(part) for part in error.absolute_path) or "root"
             raise MistralError(
