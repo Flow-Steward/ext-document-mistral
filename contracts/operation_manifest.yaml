@@ -14,7 +14,7 @@ operations:
       - {name: result_artifact_handle, value_type: artifact_handle}
       - {name: text, value_type: text}
       - {name: text_truncated, value_type: boolean}
-      - {name: structured, value_type: object}
+      - {name: structured, value_type: object, schema: {type: [object, 'null']}}
       - {name: structured_omitted, value_type: boolean}
       - {name: structured_omission_reason, value_type: text}
       - {name: request_id, value_type: text}

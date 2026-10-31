@@ -453,3 +453,17 @@ def test_mismatched_host_connection_ids_stop_before_provider(monkeypatch, bad_fi
     result = ext.handle_payload(payload)
     assert result["error_code"] == "invalid_connection"
     assert result["definitely_no_external_effect"] is True
+
+
+def test_structured_output_contract_declares_null_omission():
+    from pathlib import Path
+
+    import yaml
+
+    contract = yaml.safe_load(
+        (Path(__file__).parent.parent / "contracts/operation_manifest.yaml").read_text()
+    )
+    outputs = contract["operations"][0]["outputs"]
+    structured = next(output for output in outputs if output["name"] == "structured")
+    assert structured["value_type"] == "object"
+    assert structured["schema"]["type"] == ["object", "null"]
