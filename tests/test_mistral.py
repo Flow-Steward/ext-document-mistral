@@ -279,3 +279,13 @@ def test_schema_property_named_schema_is_allowed():
     schema = {"type": "object", "properties": {"$schema": {"type": "string"}}}
     request = build_request(b"%PDF-1.4", "application/pdf", {"schema": schema})
     assert request["document_annotation_format"]["json_schema"]["schema"] == schema
+
+
+def test_runtime_bundle_uses_host_sdk():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    assert "flowsteward-extension-sdk" not in (root / "requirements.in").read_text()
+    assert "flowsteward-extension-sdk" not in (root / "extension.yaml").read_text()
+    assert not list((root / "wheels").glob("flowsteward_extension_sdk-*.whl"))
+    assert list((root / "dev-wheels").glob("flowsteward_extension_sdk-*.whl"))

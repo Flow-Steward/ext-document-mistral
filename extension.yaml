@@ -44,24 +44,6 @@ health:
 ui_manifest: ui/ui_manifest.yaml
 action_manifest: ui/actions/actions.yaml
 python_requirements:
-- name: flowsteward-extension-sdk
-  version: 0.4.0
-  hashes:
-  - sha256:ffb5f3764d5a384b4441f6e3c0c4e66f5887d57c156fdc93abf70b5d0eeb22af
-- name: cffi
-  version: 2.1.0
-  hashes:
-  - sha256:1e9f50d192a3e525b15a75ab5114e442d83d657b7ec29182a991bc9a88fd3a66
-  - sha256:b6422532152adf4e59b110cb2808cee7a033800952f5c036b4af047ee43199e7
-- name: cryptography
-  version: 49.0.0
-  hashes:
-  - sha256:0e959b578856a3924bc0cbb710fc12c387b9412a951389f3ca61704a9e25f325
-  - sha256:36d1709f992593689b45bda411498d62c6e365f2ca00b84657d4dadd24de16db
-- name: pycparser
-  version: '3.0'
-  hashes:
-  - sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992
 - name: attrs
   version: 26.1.0
   hashes:
