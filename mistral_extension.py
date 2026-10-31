@@ -13,6 +13,8 @@ from flowsteward_extension_sdk.artifacts import (
     write_artifact_bytes,
 )
 from flowsteward_extension_sdk.http import Request, open_pinned_url, resolve_pinned_ips
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
 
 INPUT_LIMIT = 20 * 1024 * 1024
 OUTPUT_LIMIT = 50 * 1024 * 1024
@@ -34,7 +36,7 @@ def build_request(data: bytes, mime: str, options: dict[str, Any]) -> dict[str, 
         )
     if len(data) > INPUT_LIMIT:
         raise MistralError("input_too_large", "PDF document exceeds the 20 MiB limit.")
-    table = options.get("table_format") or "inline"
+    table = options.get("table_format", "inline")
     if table not in ("inline", "markdown", "html"):
         raise MistralError("invalid_payload", "Table output must be inline, markdown or html.")
     result: dict[str, Any] = {
@@ -59,15 +61,43 @@ def build_request(data: bytes, mime: str, options: dict[str, Any]) -> dict[str, 
                 "invalid_payload",
                 "Extraction JSON Schema must be an object schema of at most 64 KiB.",
             )
+
+        def has_references(value: Any) -> bool:
+            if isinstance(value, dict):
+                return any(
+                    k in {"$ref", "$dynamicRef"} or has_references(v) for k, v in value.items()
+                )
+            if isinstance(value, list):
+                return any(has_references(v) for v in value)
+            return False
+
+        if (
+            has_references(schema)
+            or schema.get("$schema", "https://json-schema.org/draft/2020-12/schema")
+            != "https://json-schema.org/draft/2020-12/schema"
+        ):
+            raise MistralError(
+                "invalid_payload",
+                "Extraction JSON Schema must use Draft 2020-12 without references. Remove $ref or $dynamicRef.",
+            )
+        try:
+            Draft202012Validator.check_schema(schema)
+        except SchemaError as exc:
+            path = ".".join(str(part) for part in exc.absolute_path) or "root"
+            raise MistralError(
+                "invalid_payload",
+                f"Extraction JSON Schema is invalid at {path}; correct that field and retry.",
+            ) from exc
         result["document_annotation_format"] = {
             "type": "json_schema",
             "json_schema": {"name": "document_extraction", "schema": schema, "strict": True},
         }
-        result["pages"] = list(range(8))
     return result
 
 
-def parse_response(response: dict[str, Any], annotated: bool) -> tuple[str, dict[str, Any]]:
+def parse_response(
+    response: dict[str, Any], schema: dict[str, Any] | None
+) -> tuple[str, dict[str, Any]]:
     pages = response.get("pages")
     if not isinstance(pages, list) or any(
         not isinstance(p, dict) or not isinstance(p.get("markdown"), str) for p in pages
@@ -75,7 +105,7 @@ def parse_response(response: dict[str, Any], annotated: bool) -> tuple[str, dict
         raise MistralError("invalid_provider_response", "Mistral response lacks valid page text.")
     text = "\n\n".join(p["markdown"] for p in pages)
     structured: dict[str, Any] = {}
-    if annotated:
+    if schema is not None:
         try:
             structured = json.loads(response["document_annotation"])
             if not isinstance(structured, dict):
@@ -84,6 +114,13 @@ def parse_response(response: dict[str, Any], annotated: bool) -> tuple[str, dict
             raise MistralError(
                 "invalid_provider_response", "Mistral did not return a valid structured object."
             ) from exc
+        error = next(Draft202012Validator(schema).iter_errors(structured), None)
+        if error is not None:
+            path = ".".join(str(part) for part in error.absolute_path) or "root"
+            raise MistralError(
+                "invalid_provider_response",
+                f"Mistral structured output does not match Extraction JSON Schema at {path}; review the schema and document.",
+            )
     return text, structured
 
 
@@ -93,6 +130,8 @@ def handle_payload(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         runtime_context_from_payload(payload)
         runtime = payload.get("runtime_context") or {}
+        if not isinstance(runtime.get("test_mode", False), bool):
+            raise MistralError("invalid_payload", "Test mode must be a boolean.")
         if runtime.get("test_mode") is True:
             raise MistralError(
                 "test_mode_suppressed", "Mistral requests are suppressed in test mode."
@@ -143,7 +182,7 @@ def handle_payload(payload: dict[str, Any]) -> dict[str, Any]:
         request_started = True
         response, request_id = post_ocr(request_body, key, timeout)
         try:
-            text, structured = parse_response(response, inputs.get("schema") is not None)
+            text, structured = parse_response(response, inputs.get("schema"))
         except MistralError as exc:
             exc.request_id = request_id
             raise
@@ -166,6 +205,7 @@ def handle_payload(payload: dict[str, Any]) -> dict[str, Any]:
         inline = text.encode("utf-8")[:TEXT_INLINE_LIMIT].decode("utf-8", errors="ignore")
         return {
             "ok": True,
+            "provider_message_id": request_id,
             "result": {
                 "result_artifact_handle": saved.get("artifact_handle"),
                 "text": inline,
@@ -180,6 +220,7 @@ def handle_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "error_code": exc.code,
             "error": exc.message,
             "errors": [{"code": exc.code, "message": exc.message}],
+            "provider_message_id": exc.request_id,
             "result": {"request_id": exc.request_id},
             "definitely_no_external_effect": not request_started,
         }
@@ -188,6 +229,7 @@ def handle_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "ok": False,
             "error_code": "artifact_access_failed",
             "error": "Could not access the document artifact.",
+            "provider_message_id": request_id,
             "result": {"request_id": request_id},
             "definitely_no_external_effect": not request_started,
         }

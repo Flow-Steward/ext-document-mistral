@@ -11,6 +11,6 @@ components:
 
       **Connect:** Open Configuration, add a connection, enter the API key and save. The key is stored as a project connection secret.
 
-      **Use:** Add Process document to a workflow, select the connection and a PDF artifact, and optionally choose table output or provide an object JSON Schema. Later steps can use the returned text, structured object or full JSON result artifact.
+      **Use:** Add Process document to a workflow, select the connection and a PDF artifact, and optionally choose table output or provide a Draft 2020-12 object JSON Schema without references. Later steps can use the returned text, structured object or full JSON result artifact.
 
-      **Limits:** PDFs up to 20 MiB. Schema extraction processes the first eight pages only. Inline text is limited; the full response is in the result artifact. Review extracted values before relying on them.
+      **Limits:** PDFs up to 20 MiB. Schema extraction processes the whole document. Inline text is limited; the full response is in the result artifact. Review extracted values before relying on them.

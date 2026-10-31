@@ -1,4 +1,5 @@
 ./dev-wheels/flowsteward_extension_sdk-0.4.0-py3-none-any.whl
+jsonschema==4.26.0
 pytest
 iniconfig
 packaging

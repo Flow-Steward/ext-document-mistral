@@ -1,1 +1,2 @@
 flowsteward-extension-sdk==0.4.0
+jsonschema==4.26.0

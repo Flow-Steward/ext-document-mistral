@@ -43,6 +43,50 @@ health:
   timeout_seconds: 5
 ui_manifest: ui/ui_manifest.yaml
 action_manifest: ui/actions/actions.yaml
+python_requirements:
+- name: flowsteward-extension-sdk
+  version: 0.4.0
+  hashes:
+  - sha256:ffb5f3764d5a384b4441f6e3c0c4e66f5887d57c156fdc93abf70b5d0eeb22af
+- name: cffi
+  version: 2.1.0
+  hashes:
+  - sha256:1e9f50d192a3e525b15a75ab5114e442d83d657b7ec29182a991bc9a88fd3a66
+  - sha256:b6422532152adf4e59b110cb2808cee7a033800952f5c036b4af047ee43199e7
+- name: cryptography
+  version: 49.0.0
+  hashes:
+  - sha256:0e959b578856a3924bc0cbb710fc12c387b9412a951389f3ca61704a9e25f325
+  - sha256:36d1709f992593689b45bda411498d62c6e365f2ca00b84657d4dadd24de16db
+- name: pycparser
+  version: '3.0'
+  hashes:
+  - sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992
+- name: attrs
+  version: 26.1.0
+  hashes:
+  - sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309
+- name: jsonschema
+  version: 4.26.0
+  hashes:
+  - sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce
+- name: jsonschema-specifications
+  version: 2025.9.1
+  hashes:
+  - sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe
+- name: referencing
+  version: 0.37.0
+  hashes:
+  - sha256:381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231
+- name: rpds-py
+  version: 2026.9.1
+  hashes:
+  - sha256:2693b2728bbcc48d09a981a356954b0c47c53ff25b545856f28a889ea619f69a
+  - sha256:addeda51556dac7c1a2f14cda62db8b621cd12afba3091d03a96c72932387eab
+- name: typing-extensions
+  version: 4.16.0
+  hashes:
+  - sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
 external_effects:
   - operation_id: process_document
     effect_kind: paid_api_call

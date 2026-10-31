@@ -12,4 +12,4 @@ forms:
           - {label: Inline Markdown, value: inline}
           - {label: Separate Markdown tables, value: markdown}
           - {label: Separate HTML tables, value: html}
-      - {name: schema, widget_type: json, label: Extraction JSON Schema, help_text: Optional object schema up to 64 KiB. Extraction processes only the first eight pages.}
+      - {name: schema, widget_type: json, label: Extraction JSON Schema, help_text: Optional object schema up to 64 KiB. Use Draft 2020-12 without references.}
