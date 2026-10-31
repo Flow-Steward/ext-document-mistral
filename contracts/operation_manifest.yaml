@@ -1,0 +1,20 @@
+operations:
+  - operation_id: process_document
+    display_name: Process document
+    description: Extract PDF text, structure and optional schema-guided data.
+    operation_kind: action
+    category: document_extraction
+    connection_type_ids: [mistral_document]
+    inputs:
+      - {name: artifact_handle, value_type: artifact_handle, required: true}
+      - {name: connection_ref, value_type: connection_ref, required: true}
+      - {name: table_format, value_type: text, required: false}
+      - {name: schema, value_type: object, required: false}
+    outputs:
+      - {name: result_artifact_handle, value_type: artifact_handle}
+      - {name: text, value_type: text}
+      - {name: text_truncated, value_type: boolean}
+      - {name: structured, value_type: object}
+      - {name: request_id, value_type: text}
+    result_fields: [result.result_artifact_handle, result.text, result.text_truncated, result.structured, result.request_id]
+    error_codes: [invalid_payload, invalid_connection, input_too_large, artifact_access_failed, provider_request_failed, provider_http_error, invalid_provider_response, output_too_large]

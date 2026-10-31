@@ -1,0 +1,15 @@
+component_id: mistral_connection
+type: connection_form
+title: Mistral connection
+description: Create an API key in Mistral Console, then save it in this project connection. OCR requests send the document to Mistral and may incur charges.
+data:
+  connection_kind: extension
+  connection_type: mistral_document
+  config_fields: [request_timeout_seconds]
+  secret_fields: [api_key]
+defaults: {display_name: Mistral Document AI, request_timeout_seconds: 120}
+fields:
+  - {path: display_name, label: Display name, widget: text}
+  - {path: environment, label: Environment, widget: text}
+  - {path: request_timeout_seconds, label: Request timeout seconds, widget: integer, help: Between 1 and 240 seconds.}
+  - {path: api_key, label: Mistral API key, widget: secret, required: true, help: Create a key in Mistral Console and paste it here.}

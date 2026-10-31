@@ -1,0 +1,15 @@
+forms:
+  - operation_id: process_document
+    title: Process document
+    section: Mistral Document AI
+    fields:
+      - {name: artifact_handle, widget_type: artifact_picker, label: PDF document, required: true, help_text: Select a PDF artifact up to 20 MiB.}
+      - name: table_format
+        widget_type: select
+        label: Table output
+        help_text: Choose how Mistral represents tables in the full result.
+        options:
+          - {label: Inline Markdown, value: inline}
+          - {label: Separate Markdown tables, value: markdown}
+          - {label: Separate HTML tables, value: html}
+      - {name: schema, widget_type: json, label: Extraction JSON Schema, help_text: Optional object schema up to 64 KiB. Extraction processes only the first eight pages.}

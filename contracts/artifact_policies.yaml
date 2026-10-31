@@ -1,0 +1,6 @@
+policies:
+  - operation_id: process_document
+    inputs:
+      - {kind: artifact, value_type: artifact_handle, binding_key: source_document, field: artifact_handle, required: true, max_size_bytes: 20971520}
+    outputs:
+      - {kind: artifact, binding_key: result_artifact_handle, filename: mistral-result.json, content_type: application/json, max_size_bytes: 52428800, retention_class: run_window}

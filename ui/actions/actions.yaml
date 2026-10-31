@@ -1,0 +1,14 @@
+actions:
+  - action_id: process_document
+    title: Process document
+    description: Extract text and optional structured data from a PDF.
+    required_scopes: [extension:invoke, artifact:read, artifact:write]
+    handler: {mode: extension}
+    mutates_platform: false
+    workflow_visible: true
+    parameters:
+      - {name: artifact_handle, type: artifact_handle, required: true}
+      - {name: table_format, type: string, required: false}
+      - {name: schema, type: object, required: false}
+    result_fields: [result_artifact_handle, text, text_truncated, structured, request_id]
+    error_codes: [invalid_payload, invalid_connection, input_too_large, artifact_access_failed, provider_request_failed, provider_http_error, invalid_provider_response, output_too_large]

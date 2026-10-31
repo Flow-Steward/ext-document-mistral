@@ -1,0 +1,16 @@
+page_id: about
+title: About
+components:
+  - component_id: mistral_about
+    type: markdown
+    title: Mistral Document AI
+    body: |
+      Extract text, layout blocks and tables from a PDF using Mistral Document AI. Optionally provide a JSON Schema to extract structured data.
+
+      **Before you begin:** Create a Mistral account, enable API access and billing as required, and create an API key in https://console.mistral.ai/ . Requests send your PDF to Mistral and may incur charges.
+
+      **Connect:** Open Configuration, add a connection, enter the API key and save. The key is stored as a project connection secret.
+
+      **Use:** Add Process document to a workflow, select the connection and a PDF artifact, and optionally choose table output or provide an object JSON Schema. Later steps can use the returned text, structured object or full JSON result artifact.
+
+      **Limits:** PDFs up to 20 MiB. Schema extraction processes the first eight pages only. Inline text is limited; the full response is in the result artifact. Review extracted values before relying on them.

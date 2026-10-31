@@ -1,0 +1,13 @@
+# Tool settings for this repository's checks (the Flow Steward extension gate
+# runs ruff, mypy and bandit from this folder). Not a package definition.
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [".fs-python", "dev-wheels", "wheels"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+explicit_package_bases = true
+exclude = "(^\\.fs-python/|^dev-wheels/|^wheels/)"

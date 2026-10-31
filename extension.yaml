@@ -1,0 +1,51 @@
+manifest_version: 2
+lifecycle: {data_schema_version: 1, data_migrations: []}
+extension_id: flowsteward.mistral-document
+kind: tool_provider
+version: 0.1.0
+display_name: Mistral Document AI
+description: Extract document text and structured data using Mistral Document AI.
+vendor:
+  name: Flow Steward
+  support_url: https://github.com/Flow-Steward/ext-document-mistral/issues
+  website_url: https://github.com/Flow-Steward/ext-document-mistral
+listing:
+  category: data
+  tags: [mistral, ocr, document-extraction]
+  summary: Extract text and structured data from PDF artifacts.
+features: [tool, action]
+required_scopes: [extension:invoke, artifact:read, artifact:write]
+machine_auth:
+  service_account_key: svc_ext_mistral_document
+  required_scopes: [extension:invoke, artifact:read, artifact:write]
+account_scope:
+  scope_type: project
+  description: API keys are stored in project-scoped connection secrets.
+runtime:
+  contract_version: extension_host_v2
+  extension_contract_v2:
+    connection_types: contracts/connection_types.yaml
+    operation_manifest: contracts/operation_manifest.yaml
+    artifact_policies: contracts/artifact_policies.yaml
+    step_ui_manifest: contracts/step_ui_manifest.yaml
+artifact_policies:
+  - operation_id: process_document
+    inputs:
+      - {kind: artifact, value_type: artifact_handle, binding_key: source_document, field: artifact_handle, required: true, max_size_bytes: 20971520}
+    outputs:
+      - {kind: artifact, binding_key: result_artifact_handle, filename: mistral-result.json, content_type: application/json, max_size_bytes: 52428800, retention_class: run_window}
+entrypoint:
+  mode: subprocess
+  command: [python3, main.py]
+  timeout_seconds: 300
+health:
+  command: [python3, health.py]
+  timeout_seconds: 5
+ui_manifest: ui/ui_manifest.yaml
+action_manifest: ui/actions/actions.yaml
+external_effects:
+  - operation_id: process_document
+    effect_kind: paid_api_call
+    channel: mistral
+    idempotency: required
+    test_mode_behavior: suppress
