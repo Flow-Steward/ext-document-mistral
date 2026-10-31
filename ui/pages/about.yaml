@@ -7,7 +7,7 @@ components:
     body: |
       Extract text, layout blocks and tables from a PDF using Mistral Document AI. Optionally provide a JSON Schema to extract structured data.
 
-      **Before you begin:** Use Flow Steward 1.4 or later. Create a Mistral account, enable API access and billing as required, and create an API key in https://console.mistral.ai/ . Requests send your PDF to Mistral and may incur charges.
+      **Before you begin:** Requires extension runtime contract 1.4.0 or later; compatibility is checked during installation. Create a Mistral account, enable API access and billing as required, and create an API key in https://console.mistral.ai/ . Requests send your PDF to Mistral and may incur charges.
 
       **Connect:** Open Configuration, add a connection, enter the API key and save. The key is stored as a project connection secret.
 
