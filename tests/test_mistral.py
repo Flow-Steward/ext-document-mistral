@@ -459,6 +459,8 @@ def test_structured_output_contract_declares_null_omission():
     from pathlib import Path
 
     import yaml
+    from jsonschema import Draft202012Validator
+    from mistral_extension import inline_structured
 
     contract = yaml.safe_load(
         (Path(__file__).parent.parent / "contracts/operation_manifest.yaml").read_text()
@@ -466,4 +468,12 @@ def test_structured_output_contract_declares_null_omission():
     outputs = contract["operations"][0]["outputs"]
     structured = next(output for output in outputs if output["name"] == "structured")
     assert structured["value_type"] == "object"
-    assert structured["schema"]["type"] == ["object", "null"]
+    validator = Draft202012Validator(structured["schema"])
+    retained, _ = inline_structured({"amount": 5})
+    omitted, reason = inline_structured({"data": "x" * (128 * 1024)})
+    assert retained == {"amount": 5}
+    assert omitted is None and reason == "size_or_complexity"
+    assert validator.is_valid(retained)
+    assert validator.is_valid(omitted)
+    assert not validator.is_valid("text")
+    assert not validator.is_valid([])
