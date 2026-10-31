@@ -213,7 +213,7 @@ def _credential_field(name: Any) -> bool:
 
 def inline_structured(structured: dict[str, Any]) -> tuple[dict[str, Any] | None, str]:
     """Keep replay-compatible objects inline; full data is in the artifact."""
-    pending = [(structured, 0)]
+    pending: list[tuple[Any, int]] = [(structured, 0)]
     nodes = 0
     while pending:
         node, depth = pending.pop()
