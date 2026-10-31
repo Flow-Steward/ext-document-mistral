@@ -66,7 +66,14 @@ def build_request(data: bytes, mime: str, options: dict[str, Any]) -> dict[str, 
         def has_references(value: Any) -> bool:
             if not isinstance(value, dict):
                 return False
-            if "$ref" in value or "$dynamicRef" in value:
+            if (
+                (
+                    "$schema" in value
+                    and value["$schema"] != "https://json-schema.org/draft/2020-12/schema"
+                )
+                or "$ref" in value
+                or "$dynamicRef" in value
+            ):
                 return True
             maps = ("properties", "patternProperties", "$defs", "dependentSchemas")
             singles = (

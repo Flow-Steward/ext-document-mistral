@@ -258,3 +258,24 @@ def test_schema_property_names_may_match_reference_keywords():
 def test_actual_nested_references_are_rejected(schema):
     with pytest.raises(MistralError, match="references"):
         build_request(b"%PDF-1.4", "application/pdf", {"schema": schema})
+
+
+def test_nested_schema_must_not_change_dialect():
+    schema = {
+        "type": "object",
+        "properties": {
+            "data": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "dependencies": {"x": {"$ref": "https://example.invalid/schema"}},
+            }
+        },
+    }
+    with pytest.raises(MistralError, match="Draft 2020-12"):
+        build_request(b"%PDF-1.4", "application/pdf", {"schema": schema})
+
+
+def test_schema_property_named_schema_is_allowed():
+    schema = {"type": "object", "properties": {"$schema": {"type": "string"}}}
+    request = build_request(b"%PDF-1.4", "application/pdf", {"schema": schema})
+    assert request["document_annotation_format"]["json_schema"]["schema"] == schema
