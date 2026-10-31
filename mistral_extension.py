@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from typing import Any
 from urllib.error import HTTPError
 
@@ -19,8 +20,9 @@ from referencing import Registry
 
 INPUT_LIMIT = 20 * 1024 * 1024
 OUTPUT_LIMIT = 50 * 1024 * 1024
-INLINE_LIMIT = 1024 * 1024
-TEXT_INLINE_LIMIT = 512 * 1024
+INLINE_JSON_LIMIT = 128 * 1024
+INLINE_NODE_LIMIT = 8192
+INLINE_DEPTH_LIMIT = 48
 
 
 class MistralError(RuntimeError):
@@ -157,6 +159,88 @@ def parse_response(
     return text, structured
 
 
+def inline_text(text: str) -> tuple[str, bool]:
+    """Bound JSON-escaped text, reserving space for the host replay envelope."""
+    low, high = 0, min(len(text), INLINE_JSON_LIMIT)
+    while low < high:
+        mid = (low + high + 1) // 2
+        if len(json.dumps(text[:mid], ensure_ascii=True).encode("ascii")) <= INLINE_JSON_LIMIT:
+            low = mid
+        else:
+            high = mid - 1
+    return text[:low], low < len(text)
+
+
+def _credential_field(name: Any) -> bool:
+    """Match the host replay policy for credential-like field names."""
+    name = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", str(name or "").strip())
+    name = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+    names = {
+        "access_key",
+        "access_token",
+        "api_key",
+        "api_token",
+        "authorization",
+        "bearer_token",
+        "client_secret",
+        "cookie",
+        "credential",
+        "credentials",
+        "password",
+        "private_key",
+        "proxy_authorization",
+        "refresh_token",
+        "runtime_bearer_token",
+        "secret",
+        "secret_key",
+        "set_cookie",
+        "token",
+    }
+    suffixes = (
+        "_access_key",
+        "_api_key",
+        "_authorization",
+        "_credential",
+        "_credentials",
+        "_password",
+        "_private_key",
+        "_secret",
+        "_secret_key",
+        "_token",
+    )
+    return bool(name and (name in names or name.endswith(suffixes)))
+
+
+def inline_structured(structured: dict[str, Any]) -> tuple[dict[str, Any] | None, str]:
+    """Keep replay-compatible objects inline; full data is in the artifact."""
+    pending = [(structured, 0)]
+    nodes = 0
+    while pending:
+        node, depth = pending.pop()
+        nodes += 1
+        if nodes > INLINE_NODE_LIMIT or depth > INLINE_DEPTH_LIMIT:
+            return None, "size_or_complexity"
+        if isinstance(node, dict):
+            if any(_credential_field(key) for key in node):
+                return None, "credential_field"
+            pending.extend((key, depth + 1) for key in node)
+            pending.extend((value, depth + 1) for value in node.values())
+        elif isinstance(node, list):
+            if any(
+                isinstance(value, list) and len(value) == 2 and _credential_field(value[0])
+                for value in node
+            ):
+                return None, "credential_field"
+            pending.extend((value, depth + 1) for value in node)
+    try:
+        encoded = json.dumps(structured, ensure_ascii=True, allow_nan=False).encode("ascii")
+    except (TypeError, ValueError, RecursionError):
+        return None, "size_or_complexity"
+    if len(encoded) > INLINE_JSON_LIMIT:
+        return None, "size_or_complexity"
+    return structured, ""
+
+
 def handle_payload(payload: dict[str, Any]) -> dict[str, Any]:
     request_id = ""
     request_started = False
@@ -185,8 +269,17 @@ def handle_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(raw_handle, str) or not raw_handle.strip():
             raise MistralError("invalid_payload", "PDF document artifact is required.")
         handle = raw_handle.removeprefix("artifact:")
-        connection = (action.get("target") or {}).get("connection") or {}
-        if connection.get("connection_type") != "mistral_document":
+        target = action.get("target") or {}
+        connection = target.get("connection") or {}
+        connection_id = connection.get("connection_id")
+        if (
+            connection.get("connection_type") != "mistral_document"
+            or not isinstance(connection_id, str)
+            or not connection_id.strip()
+            or connection_id != target.get("connection_id")
+            or connection_id != inputs.get("connection_ref")
+            or connection_id != runtime.get("connection_id")
+        ):
             raise MistralError("invalid_connection", "Select a Mistral Document AI connection.")
         key = (connection.get("secrets") or {}).get("api_key")
         if not isinstance(key, str) or not key.strip():
@@ -224,10 +317,6 @@ def handle_payload(payload: dict[str, Any]) -> dict[str, Any]:
             raise MistralError(
                 "output_too_large", "Mistral response exceeds the 50 MiB output limit.", request_id
             )
-        if len(json.dumps(structured, ensure_ascii=False).encode()) > INLINE_LIMIT:
-            raise MistralError(
-                "output_too_large", "Structured output exceeds the 1 MiB inline limit.", request_id
-            )
         saved = write_artifact_bytes(
             payload,
             output,
@@ -235,15 +324,18 @@ def handle_payload(payload: dict[str, Any]) -> dict[str, Any]:
             content_type="application/json",
             timeout_seconds=10,
         )
-        inline = text.encode("utf-8")[:TEXT_INLINE_LIMIT].decode("utf-8", errors="ignore")
+        inline, text_truncated = inline_text(text)
+        inline_object, omission_reason = inline_structured(structured)
         return {
             "ok": True,
             "provider_message_id": request_id,
             "result": {
                 "result_artifact_handle": saved.get("artifact_handle"),
                 "text": inline,
-                "text_truncated": len(inline) < len(text),
-                "structured": structured,
+                "text_truncated": text_truncated,
+                "structured": inline_object,
+                "structured_omitted": bool(omission_reason),
+                "structured_omission_reason": omission_reason,
                 "request_id": request_id,
             },
         }

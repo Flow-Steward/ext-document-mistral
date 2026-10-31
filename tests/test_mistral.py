@@ -101,12 +101,21 @@ def test_end_to_end_mock_saves_complete_response(monkeypatch):
 
     monkeypatch.setattr(ext, "write_artifact_bytes", save)
     payload = {
-        "runtime_context": {"external_effect_id": "effect-1"},
+        "runtime_context": {"external_effect_id": "effect-1", "connection_id": "conn-1"},
         "action": {
             "action_id": "process_document",
-            "input": {"artifact_handle": "artifact:input", "schema": {"type": "object"}},
+            "input": {
+                "artifact_handle": "artifact:input",
+                "schema": {"type": "object"},
+                "connection_ref": "conn-1",
+            },
             "target": {
-                "connection": {"connection_type": "mistral_document", "secrets": {"api_key": "key"}}
+                "connection_id": "conn-1",
+                "connection": {
+                    "connection_id": "conn-1",
+                    "connection_type": "mistral_document",
+                    "secrets": {"api_key": "key"},
+                },
             },
         },
     }
@@ -190,12 +199,17 @@ def test_provider_and_output_failures_preserve_reconciliation_id(monkeypatch):
     monkeypatch.setattr(ext, "find_artifact_descriptor", lambda *a, **k: {"filename": "doc.pdf"})
     monkeypatch.setattr(ext, "read_artifact_bytes", lambda *a, **k: b"%PDF-1.4")
     payload = {
-        "runtime_context": {"external_effect_id": "effect-1"},
+        "runtime_context": {"external_effect_id": "effect-1", "connection_id": "conn-1"},
         "action": {
             "action_id": "process_document",
-            "input": {"artifact_handle": "doc"},
+            "input": {"artifact_handle": "doc", "connection_ref": "conn-1"},
             "target": {
-                "connection": {"connection_type": "mistral_document", "secrets": {"api_key": "key"}}
+                "connection_id": "conn-1",
+                "connection": {
+                    "connection_id": "conn-1",
+                    "connection_type": "mistral_document",
+                    "secrets": {"api_key": "key"},
+                },
             },
         },
     }
@@ -289,3 +303,153 @@ def test_runtime_bundle_uses_host_sdk():
     assert "flowsteward-extension-sdk" not in (root / "extension.yaml").read_text()
     assert not list((root / "wheels").glob("flowsteward_extension_sdk-*.whl"))
     assert list((root / "dev-wheels").glob("flowsteward_extension_sdk-*.whl"))
+
+
+def _mock_document_call(monkeypatch, response, *, schema=True, connection_ref="conn-1"):
+    import json
+    import mistral_extension as ext
+
+    saved = []
+    monkeypatch.setattr(ext, "runtime_context_from_payload", lambda _: None)
+    monkeypatch.setattr(ext, "report_progress", lambda *_: None)
+    monkeypatch.setattr(ext, "find_artifact_descriptor", lambda *a, **k: {"filename": "doc.pdf"})
+    monkeypatch.setattr(ext, "read_artifact_bytes", lambda *a, **k: b"%PDF-1.4")
+    monkeypatch.setattr(ext, "post_ocr", lambda *a, **k: (response, "req-1"))
+
+    def save(payload, body, **kwargs):
+        saved.append(json.loads(body))
+        return {"artifact_handle": "artifact:result"}
+
+    monkeypatch.setattr(ext, "write_artifact_bytes", save)
+    inputs = {"artifact_handle": "doc", "connection_ref": connection_ref}
+    if schema:
+        inputs["schema"] = {"type": "object"}
+    payload = {
+        "runtime_context": {"external_effect_id": "effect-1", "connection_id": "conn-1"},
+        "action": {
+            "action_id": "process_document",
+            "input": inputs,
+            "target": {
+                "connection_id": "conn-1",
+                "connection": {
+                    "connection_id": "conn-1",
+                    "connection_type": "mistral_document",
+                    "secrets": {"api_key": "long-example-key"},
+                },
+            },
+        },
+    }
+    return ext.handle_payload(payload), saved
+
+
+def _assert_replay_budget(response):
+    import json
+
+    # Model the host projection and leave room for trusted host artifact summaries.
+    projected = {"status": "succeeded", "response": response}
+    assert len(json.dumps(projected, ensure_ascii=True).encode()) < 400 * 1024
+    pending = [(projected, 0)]
+    nodes = 0
+    while pending:
+        value, depth = pending.pop()
+        nodes += 1
+        assert nodes < 65536 and depth <= 64
+        if isinstance(value, dict):
+            pending.extend((item, depth + 1) for pair in value.items() for item in pair)
+        elif isinstance(value, list):
+            pending.extend((item, depth + 1) for item in value)
+
+
+def test_large_unicode_text_and_structured_are_replay_safe(monkeypatch):
+    import json
+
+    obj = {"data": "😀" * 180000}
+    response = {"pages": [{"markdown": "😀\n" * 180000}], "document_annotation": json.dumps(obj)}
+    result, saved = _mock_document_call(monkeypatch, response)
+    assert result["ok"]
+    assert result["result"]["text_truncated"] is True
+    assert result["result"]["structured"] is None
+    assert result["result"]["structured_omitted"] is True
+    assert saved == [response]
+    _assert_replay_budget(result)
+
+
+def _nested_object(depth):
+    value = 0
+    for _ in range(depth):
+        value = [value]
+    return {"nested": value}
+
+
+@pytest.mark.parametrize("obj", [{"items": [0] * 65536}, _nested_object(70)])
+def test_complex_structured_result_is_omitted_to_artifact(monkeypatch, obj):
+    import json
+
+    response = {"pages": [{"markdown": "ok"}], "document_annotation": json.dumps(obj)}
+    result, saved = _mock_document_call(monkeypatch, response)
+    assert result["ok"]
+    assert result["result"]["structured"] is None
+    assert result["result"]["structured_omitted"] is True
+    assert saved == [response]
+    _assert_replay_budget(result)
+
+
+def test_small_structured_result_stays_inline(monkeypatch):
+    response = {"pages": [{"markdown": "ok"}], "document_annotation": '{"amount": 5}'}
+    result, _ = _mock_document_call(monkeypatch, response)
+    assert result["result"]["structured"] == {"amount": 5}
+    assert result["result"]["structured_omitted"] is False
+    _assert_replay_budget(result)
+
+
+def test_mismatched_connection_reference_stops_before_provider(monkeypatch):
+    response = {"pages": [{"markdown": "ok"}], "document_annotation": "{}"}
+    result, saved = _mock_document_call(monkeypatch, response, connection_ref="other")
+    assert result["error_code"] == "invalid_connection"
+    assert result["definitely_no_external_effect"] is True
+    assert saved == []
+
+
+def test_credential_named_structured_fields_are_omitted(monkeypatch):
+    response = {
+        "pages": [{"markdown": "ok"}],
+        "document_annotation": '{"clientSecret": "not-a-secret"}',
+    }
+    result, saved = _mock_document_call(monkeypatch, response)
+    assert result["result"]["structured"] is None
+    assert result["result"]["structured_omitted"] is True
+    assert result["result"]["structured_omission_reason"] == "credential_field"
+    assert saved == [response]
+    _assert_replay_budget(result)
+
+
+@pytest.mark.parametrize("bad_field", ["target", "resolved", "runtime"])
+def test_mismatched_host_connection_ids_stop_before_provider(monkeypatch, bad_field):
+    import mistral_extension as ext
+
+    monkeypatch.setattr(ext, "runtime_context_from_payload", lambda _: None)
+    monkeypatch.setattr(ext, "post_ocr", lambda *a, **k: pytest.fail("must not send"))
+    payload = {
+        "runtime_context": {"external_effect_id": "effect-1", "connection_id": "conn-1"},
+        "action": {
+            "action_id": "process_document",
+            "input": {"artifact_handle": "doc", "connection_ref": "conn-1"},
+            "target": {
+                "connection_id": "conn-1",
+                "connection": {
+                    "connection_id": "conn-1",
+                    "connection_type": "mistral_document",
+                    "secrets": {"api_key": "long-example-key"},
+                },
+            },
+        },
+    }
+    if bad_field == "target":
+        payload["action"]["target"]["connection_id"] = "other"
+    elif bad_field == "resolved":
+        payload["action"]["target"]["connection"]["connection_id"] = "other"
+    else:
+        payload["runtime_context"]["connection_id"] = "other"
+    result = ext.handle_payload(payload)
+    assert result["error_code"] == "invalid_connection"
+    assert result["definitely_no_external_effect"] is True

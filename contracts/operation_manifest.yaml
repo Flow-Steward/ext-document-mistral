@@ -15,6 +15,8 @@ operations:
       - {name: text, value_type: text}
       - {name: text_truncated, value_type: boolean}
       - {name: structured, value_type: object}
+      - {name: structured_omitted, value_type: boolean}
+      - {name: structured_omission_reason, value_type: text}
       - {name: request_id, value_type: text}
-    result_fields: [result.result_artifact_handle, result.text, result.text_truncated, result.structured, result.request_id]
+    result_fields: [result.result_artifact_handle, result.text, result.text_truncated, result.structured, result.structured_omitted, result.structured_omission_reason, result.request_id]
     error_codes: [invalid_payload, invalid_connection, input_too_large, artifact_access_failed, provider_request_failed, provider_http_error, invalid_provider_response, output_too_large]

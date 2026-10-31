@@ -10,5 +10,5 @@ actions:
       - {name: artifact_handle, type: artifact_handle, required: true}
       - {name: table_format, type: string, required: false}
       - {name: schema, type: object, required: false}
-    result_fields: [result_artifact_handle, text, text_truncated, structured, request_id]
+    result_fields: [result_artifact_handle, text, text_truncated, structured, structured_omitted, structured_omission_reason, request_id]
     error_codes: [invalid_payload, invalid_connection, input_too_large, artifact_access_failed, provider_request_failed, provider_http_error, invalid_provider_response, output_too_large]
