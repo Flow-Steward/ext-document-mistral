@@ -69,6 +69,8 @@ python_requirements:
   version: 4.16.0
   hashes:
   - sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+egress:
+  hosts: [api.mistral.ai]
 external_effects:
   - operation_id: process_document
     effect_kind: paid_api_call
