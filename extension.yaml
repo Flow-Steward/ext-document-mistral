@@ -2,7 +2,7 @@ manifest_version: 2
 lifecycle: {data_schema_version: 1, data_migrations: []}
 extension_id: flowsteward.mistral-document
 kind: tool_provider
-version: 0.1.2
+version: 0.1.3
 display_name: Mistral Document AI
 description: Extract document text and structured data using Mistral Document AI.
 vendor:

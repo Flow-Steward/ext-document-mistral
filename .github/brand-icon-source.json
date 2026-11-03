@@ -1,0 +1,29 @@
+{
+  "brand_page_url": "https://mistral.ai/brand/",
+  "source_url": "https://mistral.ai/_astro/cover-logo-icon-gradient_Z1vzKon.webp?dpl=6ae98a536c551d771edcc553",
+  "source_file": "official-cover.webp",
+  "preferred_original_download_url": "https://cms.globalaegis.net/api/documents/file/Mistral-Icon-Gradient-RGB.png",
+  "preferred_original_download_status": "Public brand-kit PNG download returned HTTP 403, including with browser user agent and official-page referrer; used the official brand page gradient-icon preview instead.",
+  "conversion": {
+    "tool": "ImageMagick",
+    "command": "magick official-cover.webp -gravity center -crop 400x400+0+0 +repage -strip icon.png",
+    "details": "Lossless crop of empty surrounding background only: 1080x680 official preview to centered 400x400 square. No logo scaling, redrawing, recoloring, frame, stretch or AI generation. Original official neutral background retained. The full mark remains intact with approximately 110px horizontal and 136px vertical clearspace."
+  },
+  "guidelines_observed": [
+    "Current gradient icon preferred",
+    "No recoloring, deformation, layout changes or frame",
+    "Clearspace preserved; neutral background is from official asset"
+  ],
+  "trademark_notice_suggestion": "Mistral and the Mistral logo are trademarks of Mistral AI. Used to identify the Mistral integration; no endorsement or affiliation is implied.",
+  "provider": "mistral",
+  "retrieved_at_utc": "2026-11-03T12:11:23.883544+00:00",
+  "source_sha256": "503de1f5b0c863b000d9f43a65b42547e196859ed0d2f8e02f47e578b3e8fd33",
+  "output_file": "/private/tmp/fs-ai-logo-assets/mistral/icon.png",
+  "output_sha256": "ae4127b3b7fd2ab77475c57df44fdf66c979ff0a294b483dee1661de5aad03c7",
+  "output_bytes": 13800,
+  "output_dimensions": [
+    400,
+    400
+  ],
+  "usage_note": "Public official asset retrieved without clicking or accepting a legal agreement. Public availability is provenance, not a grant of trademark rights."
+}
