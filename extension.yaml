@@ -2,17 +2,28 @@ manifest_version: 2
 lifecycle: {data_schema_version: 1, data_migrations: []}
 extension_id: flowsteward.mistral-document
 kind: tool_provider
-version: 0.1.3
+version: 0.1.4
 display_name: Mistral Document AI
-description: Extract document text and structured data using Mistral Document AI.
+description: |-
+  Turn PDF artifacts into text and structured data for document review and processing workflows with Mistral Document AI. The action uses Mistral's OCR service. Supply a JSON Schema when you want document data organized into named fields, or use the text output directly in later workflow steps. A complete JSON result is also saved as an artifact.
+
+  Choose whether tables appear as inline Markdown, separate Markdown or HTML tables. The schema-guided extraction applies to the whole document, making the action useful for preparing invoice data, document summaries or review inputs before your own workflow applies business rules. The operation returns a provider request ID, a text-truncation flag and, when relevant, a reason why structured data was omitted from the inline result.
+
+  PDF input is limited to 20 MiB. Inline text and structured data each have 128 KiB JSON-encoded limits, while the complete result artifact can be up to 50 MiB. Some structured results therefore need to be read from the artifact. Document contents are sent to Mistral, and provider access and billing apply. Review extracted values before acting on them.
 vendor:
   name: Flow Steward
   support_url: https://github.com/Flow-Steward/ext-document-mistral/issues
   website_url: https://github.com/Flow-Steward/ext-document-mistral
 listing:
   category: data
-  tags: [mistral, ocr, document-extraction]
-  summary: Extract text and structured data from PDF artifacts.
+  tags:
+  - mistral
+  - ocr
+  - document-extraction
+  summary: Extract PDF text, table content and optional schema-guided data with Mistral OCR, preserving the complete
+    JSON result.
+  setup_summary: Create a project-scoped Mistral API connection using a key from the Mistral console and select
+    a PDF artifact in the Process document step. Mistral API access and any required billing must be enabled.
 features: [tool, action]
 required_scopes: [extension:invoke, artifact:read, artifact:write]
 machine_auth:
