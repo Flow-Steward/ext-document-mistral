@@ -5,12 +5,16 @@
 
 Fetches scripts/build_index.py from github.com/Flow-Steward/extensions and runs
 its inspect_archive on every archive, so a release the catalog would refuse
-fails here, before it is published. The logo (icon.png) is checked locally as
-well, so a missing or invalid one fails even when the catalog is unreachable.
+fails here, before it is published. A failed catalog download blocks publication.
+The logo (icon.png) is also checked locally.
+
+The checker and policy files are pinned to a commit and verified by SHA-256
+before the fetched checker can execute.
 """
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import re
@@ -24,7 +28,14 @@ from types import ModuleType
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from package_extension import ICON_FILE, icon_problem  # noqa: E402
 
-CATALOG = "https://raw.githubusercontent.com/Flow-Steward/extensions/main"
+CATALOG_REVISION = "f21511cba4bba6e283d74494e87f9a69e0c342ab"
+CATALOG = f"https://raw.githubusercontent.com/Flow-Steward/extensions/{CATALOG_REVISION}"
+#: SHA-256 of each file at CATALOG_REVISION; update together with the revision.
+CATALOG_DIGESTS = {
+    "scripts/build_index.py": "aef2c2d9b134b35387503e085bd61afb48244393418229e63aef27b7762a6e6d",
+    "categories.json": "c80cfd8078c4a24613261a2eefe6bb1ff5c98a3503d17436eac339f548dfe9b1",
+    "verified_publishers.json": "9b9d8903a45d34f6e81739b609e406d39cdfd250b2f47e506f25952591ff98b8",
+}
 _NAME = re.compile(
     r"^(?P<id>[a-z0-9.-]+?)-(?P<version>\d+\.\d+\.\d+)(?:-(?P<target>linux-amd64|linux-arm64))?\.zip$"
 )
@@ -45,9 +56,18 @@ def _repository() -> str:
     return f"https://github.com/{slug}"
 
 
+class CatalogDigestMismatch(Exception):
+    """A fetched catalog file is not the one this repository pinned."""
+
+
 def _fetch(path: str) -> bytes:
     with urllib.request.urlopen(f"{CATALOG}/{path}", timeout=60) as response:  # noqa: S310 - fixed https host
-        return response.read()
+        data = response.read()
+    if hashlib.sha256(data).hexdigest() != CATALOG_DIGESTS[path]:
+        raise CatalogDigestMismatch(
+            f"{path} at {CATALOG_REVISION} does not match its pinned SHA-256"
+        )
+    return data
 
 
 def archive_icon_problem(path: Path, extension_id: str) -> str:
@@ -66,10 +86,8 @@ def _load_catalog() -> tuple[ModuleType, set[str], dict[str, str]] | None:
     try:
         source, categories = _fetch("scripts/build_index.py"), json.loads(_fetch("categories.json"))
         publishers = json.loads(_fetch("verified_publishers.json"))
-    except OSError as exc:
-        print(
-            f"::warning::catalog checker unavailable ({exc}); archives were not checked against it"
-        )
+    except (OSError, CatalogDigestMismatch) as exc:
+        print(f"::error::catalog checker unavailable ({exc}); archives were not checked against it")
         return None
     with tempfile.TemporaryDirectory() as tmp:
         script = Path(tmp) / "build_index.py"
@@ -84,6 +102,8 @@ def _load_catalog() -> tuple[ModuleType, set[str], dict[str, str]] | None:
 
 def main(paths: list[str]) -> int:
     loaded = _load_catalog()
+    if loaded is None:
+        return 1
     failures = 0
     for path in paths:
         match = _NAME.match(Path(path).name)
@@ -95,9 +115,6 @@ def main(paths: list[str]) -> int:
         if problem:
             print(f"{path}: {match['id']} {match['version']}: {problem}", file=sys.stderr)
             failures += 1
-            continue
-        if loaded is None:
-            print(f"{Path(path).name}: logo OK; not checked against the catalog")
             continue
         catalog, categories, publishers = loaded
         entry = catalog.parse_entry(match["id"], f"repository: {_repository()}\n")
