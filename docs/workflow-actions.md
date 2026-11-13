@@ -18,6 +18,7 @@ Example input values:
 
 ```json
 {
+  "artifact_handle": "artifact:input",
   "schema": {
     "type": "object",
     "properties": {
@@ -35,3 +36,5 @@ Example input values:
   }
 }
 ```
+
+In the workflow editor, select the source artifact from the earlier step. `artifact:input` illustrates the mapped handle; replace it with the actual handle supplied by that step.
