@@ -2,7 +2,7 @@ manifest_version: 2
 lifecycle: {data_schema_version: 1, data_migrations: []}
 extension_id: flowsteward.mistral-document
 kind: tool_provider
-version: 0.1.4
+version: 0.1.5
 display_name: Mistral Document AI
 description: |-
   Turn PDF artifacts into text and structured data for document review and processing workflows with Mistral Document AI. The action uses Mistral's OCR service. Supply a JSON Schema when you want document data organized into named fields, or use the text output directly in later workflow steps. A complete JSON result is also saved as an artifact.

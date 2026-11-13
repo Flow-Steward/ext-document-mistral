@@ -11,6 +11,6 @@ components:
 
       **Connect:** Open Configuration, add a connection, enter the API key and save. The key is stored as a project connection secret.
 
-      **Use:** Add Process document to a workflow, select the connection and a PDF artifact, and optionally choose table output or provide a Draft 2020-12 object JSON Schema without references. Later steps can use the returned text, structured object or full JSON result artifact.
+      **Use:** Add Extract PDF text and schema-guided data to a workflow, select the connection and a PDF artifact, and optionally choose table output or provide a Draft 2020-12 object JSON Schema without references. Later steps can use the returned text, structured object or full JSON result artifact.
 
       **Limits:** PDFs up to 20 MiB. Schema extraction processes the whole document. Inline text may be truncated (`text_truncated`). Large or complex structured data, and objects with credential-like field names, are omitted inline (`structured_omitted` is true, `structured` is null, and `structured_omission_reason` explains why). The host blocks results reflecting the connection secret; avoid documents containing the API key. The full response and annotation are in the result artifact. Review extracted values before relying on them.
