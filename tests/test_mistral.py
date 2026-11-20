@@ -342,6 +342,28 @@ def _mock_document_call(monkeypatch, response, *, schema=True, connection_ref="c
     return ext.handle_payload(payload), saved
 
 
+def test_protected_connection_data_is_withheld_before_artifact_write(monkeypatch):
+    response = {"pages": [{"markdown": "Invoice total"}], "processed": ["long-example-key"]}
+    result, saved = _mock_document_call(monkeypatch, response, schema=False)
+    assert not result["ok"]
+    assert result["error_code"] == "invalid_provider_response"
+    assert not result["definitely_no_external_effect"]
+    assert "long-example-key" not in str(result)
+    assert not saved
+
+
+@pytest.mark.parametrize("schema", [True, False])
+def test_decoded_document_annotation_is_checked_before_publication(monkeypatch, schema):
+    response = {
+        "pages": [{"markdown": "Invoice total"}],
+        "document_annotation": r'{"value":"long-example-\u006bey"}',
+    }
+    result, saved = _mock_document_call(monkeypatch, response, schema=schema)
+    assert not result["ok"]
+    assert result["error_code"] == "invalid_provider_response"
+    assert not saved
+
+
 def _assert_replay_budget(response):
     import json
 

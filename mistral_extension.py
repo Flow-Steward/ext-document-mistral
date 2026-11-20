@@ -128,8 +128,31 @@ def build_request(data: bytes, mime: str, options: dict[str, Any]) -> dict[str, 
     return result
 
 
+def _refuse_protected_key(value: Any, key: str) -> None:
+    if not key:
+        return
+    pending = [value]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, str) and key in node:
+            raise MistralError(
+                "invalid_provider_response", "Mistral returned protected connection data."
+            )
+        if isinstance(node, dict):
+            pending.extend(node)
+            pending.extend(node.values())
+        elif isinstance(node, list):
+            pending.extend(node)
+
+
+def _provider_request_id(value: Any, key: str) -> str:
+    identifier = str(value or "")
+    _refuse_protected_key(identifier, key)
+    return identifier[:256]
+
+
 def parse_response(
-    response: dict[str, Any], schema: dict[str, Any] | None
+    response: dict[str, Any], schema: dict[str, Any] | None, *, protected_key: str = ""
 ) -> tuple[str, dict[str, Any]]:
     pages = response.get("pages")
     if not isinstance(pages, list) or any(
@@ -137,6 +160,7 @@ def parse_response(
     ):
         raise MistralError("invalid_provider_response", "Mistral response lacks valid page text.")
     text = "\n\n".join(p["markdown"] for p in pages)
+    _refuse_protected_key(text, protected_key)
     structured: dict[str, Any] = {}
     if schema is not None:
         try:
@@ -147,15 +171,24 @@ def parse_response(
             raise MistralError(
                 "invalid_provider_response", "Mistral did not return a valid structured object."
             ) from exc
+        _refuse_protected_key(structured, protected_key)
         error = next(
             Draft202012Validator(schema, registry=Registry()).iter_errors(structured), None
         )
         if error is not None:
             path = ".".join(str(part) for part in error.absolute_path) or "root"
+            _refuse_protected_key(path, protected_key)
             raise MistralError(
                 "invalid_provider_response",
                 f"Mistral structured output does not match Extraction JSON Schema at {path}; review the schema and document.",
             )
+    elif protected_key and isinstance(annotation := response.get("document_annotation"), str):
+        try:
+            decoded_annotation = json.loads(annotation)
+        except ValueError:
+            pass  # Optional plain-text annotations were already checked as raw strings.
+        else:
+            _refuse_protected_key(decoded_annotation, protected_key)
     return text, structured
 
 
@@ -306,13 +339,17 @@ def handle_payload(payload: dict[str, Any]) -> dict[str, Any]:
         request_body = build_request(body, mime or "", inputs)
         report_progress("Processing the document with Mistral")
         request_started = True
-        response, request_id = post_ocr(request_body, key, timeout)
+        response, provider_id = post_ocr(request_body, key, timeout)
+        request_id = _provider_request_id(provider_id, key)
+        _refuse_protected_key(response, key)
         try:
-            text, structured = parse_response(response, inputs.get("schema"))
+            text, structured = parse_response(response, inputs.get("schema"), protected_key=key)
         except MistralError as exc:
             exc.request_id = request_id
             raise
-        output = json.dumps(response, ensure_ascii=False, separators=(",", ":")).encode()
+        serialized = json.dumps(response, ensure_ascii=False, separators=(",", ":"))
+        _refuse_protected_key(serialized, key)
+        output = serialized.encode()
         if len(output) > OUTPUT_LIMIT:
             raise MistralError(
                 "output_too_large", "Mistral response exceeds the 50 MiB output limit.", request_id
@@ -384,10 +421,12 @@ def post_ocr(body: dict[str, Any], key: str, timeout: int) -> tuple[dict[str, An
         with open_pinned_url(
             request, timeout_seconds=float(timeout), purpose="Mistral OCR", pinned_ips=tuple(ips)
         ) as response:
-            request_id = str(response.headers.get("x-request-id", ""))[:256]
+            request_id = _provider_request_id(response.headers.get("x-request-id"), key)
             raw = response.read(OUTPUT_LIMIT + 1)
     except HTTPError as exc:
-        request_id = str(exc.headers.get("x-request-id", ""))[:256] if exc.headers else ""
+        request_id = _provider_request_id(
+            exc.headers.get("x-request-id") if exc.headers else "", key
+        )
         raise MistralError(
             "provider_http_error",
             f"Mistral returned HTTP {exc.code}. Check the API key, PDF, table format and extraction JSON Schema before retrying.",
